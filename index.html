@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>济南城市情报简报</title>
+  <style>
+    :root {
+      --ink: #122033;
+      --muted: #68778b;
+      --line: #dfe6ee;
+      --paper: #ffffff;
+      --canvas: #f3f6f9;
+      --navy: #10253f;
+      --blue: #1877f2;
+      --blue-soft: #eaf3ff;
+      --cyan: #1e91a5;
+      --shadow: 0 12px 30px rgba(17, 36, 61, .08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--canvas);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Microsoft YaHei", sans-serif;
+    }
+    button, input { font: inherit; }
+    .topbar {
+      color: #fff;
+      background: var(--navy);
+      padding: 24px clamp(20px, 4vw, 64px);
+    }
+    .topbar-inner {
+      max-width: 1500px;
+      margin: auto;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+    }
+    h1 { margin: 0 0 5px; font-size: clamp(25px, 3vw, 38px); letter-spacing: -.04em; }
+    .subtitle { margin: 0; color: #b9c8d8; font-size: 14px; }
+    .updated { color: #d7e2ed; font-size: 13px; white-space: nowrap; }
+    main { max-width: 1500px; margin: auto; padding: 24px clamp(16px, 4vw, 64px) 48px; }
+    .scope-tabs {
+      display: flex;
+      width: fit-content;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 4px;
+      background: var(--paper);
+      box-shadow: 0 4px 15px rgba(17, 36, 61, .04);
+    }
+    .scope-tab {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 18px;
+      color: #536175;
+      background: transparent;
+      cursor: pointer;
+      font-weight: 650;
+    }
+    .scope-tab.active { color: #fff; background: var(--blue); }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 18px 0;
+    }
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+    .filter {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 7px 12px;
+      background: var(--paper);
+      color: #566579;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .filter.active { color: #1262c4; background: var(--blue-soft); border-color: #b9d8ff; }
+    .search {
+      min-width: 220px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 9px 12px;
+      outline: none;
+      background: var(--paper);
+    }
+    .search:focus { border-color: #7eb7ff; box-shadow: 0 0 0 3px #e7f2ff; }
+    .workspace {
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 14px;
+    }
+    .table-shell, .map-panel {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .table-head {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .table-head h2 { margin: 0; font-size: 18px; }
+    .count { color: var(--muted); font-size: 13px; }
+    .table-wrap { overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    th:nth-child(1) { width: 9%; }
+    th:nth-child(2) { width: 14%; }
+    th:nth-child(3) { width: 14%; }
+    th:nth-child(4) { width: 12%; }
+    th:nth-child(5) { width: 34%; }
+    th:nth-child(6) { width: 10%; }
+    th:nth-child(7) { width: 7%; }
+    th {
+      padding: 12px 14px;
+      text-align: left;
+      color: #627187;
+      background: #f7f9fb;
+      border-bottom: 1px solid var(--line);
+      font-size: 12px;
+      letter-spacing: .02em;
+      white-space: nowrap;
+    }
+    td {
+      padding: 15px 14px;
+      border-bottom: 1px solid #ebeff4;
+      vertical-align: top;
+      font-size: 13px;
+      line-height: 1.55;
+      overflow-wrap: anywhere;
+    }
+    tr { cursor: pointer; transition: background .15s; }
+    tbody tr:hover, tbody tr.selected { background: #f1f7ff; }
+    tbody tr:last-child td { border-bottom: 0; }
+    .project { font-weight: 720; color: #15263b; }
+    .category {
+      display: inline-flex;
+      border-radius: 5px;
+      padding: 4px 7px;
+      color: #176776;
+      background: #e8f6f8;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .source, .map-link {
+      color: #176ad1;
+      text-decoration: none;
+      font-weight: 650;
+    }
+    .source:hover, .map-link:hover { text-decoration: underline; }
+    .map-panel {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr);
+      min-height: 132px;
+    }
+    .map-visual {
+      position: relative;
+      height: 100%;
+      min-height: 132px;
+      overflow: hidden;
+      background:
+        linear-gradient(33deg, transparent 45%, #d9e3ec 46%, #d9e3ec 49%, transparent 50%) 0 0/120px 95px,
+        linear-gradient(-22deg, transparent 44%, #dfe8ef 45%, #dfe8ef 48%, transparent 49%) 20px 10px/130px 110px,
+        #edf3f6;
+    }
+    .river {
+      position: absolute;
+      width: 130%;
+      height: 44px;
+      top: 35px;
+      left: -12%;
+      border: 8px solid #aed7e2;
+      border-left: 0;
+      border-right: 0;
+      border-radius: 50%;
+      transform: rotate(-5deg);
+    }
+    .pin {
+      position: absolute;
+      left: 50%;
+      top: 54%;
+      width: 28px;
+      height: 28px;
+      border-radius: 50% 50% 50% 0;
+      background: #e54c49;
+      transform: translate(-50%, -50%) rotate(-45deg);
+      box-shadow: 0 6px 16px rgba(144, 29, 29, .28);
+    }
+    .pin::after {
+      content: "";
+      position: absolute;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #fff;
+      left: 9px;
+      top: 9px;
+    }
+    .map-label {
+      position: absolute;
+      left: 50%;
+      top: calc(54% + 30px);
+      transform: translateX(-50%);
+      padding: 5px 8px;
+      border-radius: 6px;
+      background: rgba(255,255,255,.94);
+      box-shadow: 0 3px 10px rgba(17,36,61,.12);
+      font-weight: 700;
+      font-size: 12px;
+      max-width: 80%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .map-info {
+      padding: 16px 18px;
+      display: grid;
+      grid-template-columns: minmax(150px, .65fr) minmax(260px, 1.8fr) auto;
+      align-items: center;
+      gap: 18px;
+    }
+    .map-heading { min-width: 0; }
+    .map-info h3 { margin: 0 0 6px; font-size: 17px; }
+    .map-location { margin: 0; color: var(--muted); font-size: 12px; }
+    .map-summary { margin: 0; color: #425168; font-size: 13px; line-height: 1.6; }
+    .map-actions { display: flex; gap: 8px; margin: 0; }
+    .map-button {
+      display: inline-block;
+      text-align: center;
+      padding: 10px 9px;
+      border: 1px solid #b8d5fa;
+      border-radius: 8px;
+      color: #145eae;
+      background: #f2f7ff;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .map-button.primary { color: #fff; background: var(--blue); border-color: var(--blue); }
+    .empty { padding: 45px; text-align: center; color: var(--muted); }
+    footer {
+      max-width: 1500px;
+      margin: auto;
+      padding: 0 clamp(16px, 4vw, 64px) 35px;
+      color: #758398;
+      font-size: 12px;
+    }
+    @media (max-width: 1080px) {
+      .map-panel { grid-template-columns: 120px minmax(0, 1fr); }
+      .map-info { grid-template-columns: minmax(150px, .7fr) minmax(220px, 1.5fr); }
+      .map-actions { grid-column: 1 / -1; }
+      th, td { padding-left: 10px; padding-right: 10px; }
+    }
+    @media (max-width: 760px) {
+      .topbar-inner, .toolbar { align-items: stretch; flex-direction: column; }
+      .updated { white-space: normal; }
+      .scope-tabs { width: 100%; }
+      .scope-tab { flex: 1; padding-inline: 8px; }
+      .search { width: 100%; min-width: 0; }
+      .map-panel { display: block; }
+      .map-visual { height: 130px; min-height: 0; }
+      .map-info { display: block; }
+      .map-summary { margin-top: 10px; }
+      .map-actions { margin-top: 12px; }
+      table, thead, tbody, tr, td { display: block; width: 100%; }
+      thead { display: none; }
+      tbody { padding: 8px 12px; }
+      tbody tr {
+        margin: 0 0 12px;
+        padding: 13px 14px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+      }
+      tbody tr:last-child { margin-bottom: 0; }
+      td {
+        display: grid;
+        grid-template-columns: 82px minmax(0, 1fr);
+        gap: 8px;
+        padding: 7px 0;
+        border-bottom: 1px dashed #e5ebf1;
+      }
+      td::before {
+        content: attr(data-label);
+        color: #728095;
+        font-size: 12px;
+        font-weight: 650;
+      }
+      td:last-child { border-bottom: 0; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div>
+        <h1>济南城市情报简报</h1>
+        <p class="subtitle">道路交通、公共设施、城市更新与民生风险信息汇总</p>
+      </div>
+      <div class="updated">信息更新至 2026年7月4日</div>
+    </div>
+  </header>
+
+  <main>
+    <nav class="scope-tabs" aria-label="信息范围">
+      <button class="scope-tab active" data-scope="local">龙园小区周边</button>
+      <button class="scope-tab" data-scope="city">济南全市</button>
+    </nav>
+    <section class="toolbar">
+      <div class="filters" id="filters"></div>
+      <input class="search" id="search" type="search" placeholder="搜索项目、位置或内容">
+    </section>
+    <div class="workspace">
+      <section class="table-shell">
+        <div class="table-head">
+          <h2 id="sectionTitle">龙园小区周边信息</h2>
+          <span class="count" id="count"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>项目分类</th><th>项目名称</th><th>项目位置</th><th>项目时间</th>
+                <th>重点内容</th><th>信息来源</th><th>地图</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+          <div class="empty" id="empty" hidden>没有匹配的信息</div>
+        </div>
+      </section>
+      <aside class="map-panel" aria-live="polite">
+        <div class="map-visual">
+          <div class="river"></div><div class="pin"></div><div class="map-label" id="mapLabel"></div>
+        </div>
+        <div class="map-info">
+          <div class="map-heading">
+            <h3 id="mapTitle"></h3>
+            <p class="map-location" id="mapLocation"></p>
+          </div>
+          <p class="map-summary" id="mapSummary"></p>
+          <div class="map-actions">
+            <a class="map-button primary" id="amapLink" target="_blank" rel="noopener">高德地图</a>
+            <a class="map-button" id="baiduLink" target="_blank" rel="noopener">百度地图</a>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+  <footer>说明：地图按钮按照项目名称和位置发起搜索；规划及施工时间可能调整，请以对应政府部门最新公告为准。</footer>
+
+  <script>
+    const data = {
+      local: [
+        ["轨道交通","济南地铁4号线","经十路沿线，附近为汉峪金谷站","2025年12月27日开通","连接西客站、老城区、CBD、高新区和唐冶，改善东西向通勤。","济南市政府","https://www.jinan.gov.cn/col/col52/art/2025/art_2cc25d668c1b4e177e63a48d7847df53.html"],
+        ["道路交通","凤凰路附近人行天桥","经十路以南、凤凰路以东","2026年2月招标；计划工期120天","建设跨度31米人行天桥，配套照明、排水和栏杆。","公共资源交易中心","https://jnggzy.jinan.gov.cn/jnggzyztb/front/showNotice.do?iid=962BE27CD9910F29C9CFF02A5DBBC6A4&isnew=1&xuanxiang=1"],
+        ["安全与风险","龙园出入口桥梁检测","龙园北门、东门小汉峪桥","2026年度","开展桥梁检测和技术评定，后续可能根据结果维修。","项目采购文件","https://zhengxin-pub.cdn.bcebos.com/tender/36aed262318d06cb836095a2830c047a/%E7%AB%9E%E4%BA%89%E6%80%A7%E7%A3%8B%E5%95%86%E6%96%87%E4%BB%B6-%E6%B5%8E%E5%8D%97%E9%AB%98%E6%96%B0%E6%8A%80%E6%9C%AF%E4%BA%A7%E4%B8%9A%E5%BC%80%E5%8F%91%E5%8C%BA2026%E5%B9%B4%E4%B8%AD%E5%BF%83%E5%8C%BA%E6%A1%A5%E6%A2%81%E6%A3%80%E6%B5%8B%E9%A1%B9%E7%9B%AE.pdf"],
+        ["生态与防洪","小汉峪沟河道治理","龙园、凤凰路周边","2026年推进","涉及河道、防洪排涝及桥涵治理，可能带来阶段性施工影响。","齐鲁网","https://jinan.iqilu.com/news/2026/0526/5917230.shtml"],
+        ["停车与体育","舜泰广场地下停车场、公园","舜泰北路以南、舜泰路以北","2026年施工；预计2027年上半年投用","新增500个车位，地面建设公园绿地和活动空间。","舜网","https://news.e23.cn/jnnews/2026-06-25/2026062500155.html"],
+        ["商业生活","济南山姆会员商店","工业南路与凤凰路交叉口东北侧","2026年5月15日开业","建筑面积约8.1万平方米，配套约1100个停车位。","济南时报","https://www.jinantimes.com.cn/news-70-10594406.html"],
+        ["城市更新","高新区中心区更新计划","舜华路、齐鲁软件园等片区","2026—2030年","推进道路、公园、河道、停车和公共服务设施建设。","齐鲁网","https://jinan.iqilu.com/news/2026/0429/5910408.shtml"],
+        ["医疗服务","龙园社区卫生服务站","龙园A1、A2车库底商","2025年定点名单","高新区医保定点社区医疗机构。","高新区官方名单","https://innovation.jinan.gov.cn/col82804/art/2025/art_82804_4834035.html"],
+        ["社会事件","暂无确认的重大事件","龙园及近距离周边","截至2026年7月4日","暂未检索到政府或主流媒体确认的重大治安、消防、污染事件。","公开信息综合检索",""]
+      ],
+      city: [
+        ["轨道交通","地铁6号线西段","西部城区至中心城区","计划2026年建成通车","串联国际医学中心、济南西站、济南站，并与已开通东段贯通。","济南市政府","https://www.jinan.gov.cn/col57650/art/2026/art_57650_5052003.html"],
+        ["道路交通","城市道路综合治理","济南市重点道路","2026年度","治理不少于20处堵点，建设11座天桥，打通8条断头路、瓶颈路。","济南市政府","https://www.jinan.gov.cn/col1861/art/2026/art_1861_5052291.html"],
+        ["公共交通","公交轨道“两网融合”","济南市","2026年度","新开或优化40条地铁接驳线、55条定制公交、5条旅游公交。","济南市政府","https://www.jinan.gov.cn/col1861/art/2026/art_1861_5052291.html"],
+        ["停车设施","“全市一个停车场”","济南市","2026年度","接入不少于1100个停车场、33万个泊位，推广“泉易泊”。","济南市政府","https://www.jinan.gov.cn/col1861/art/2026/art_1861_5052291.html"],
+        ["城市更新","公园、绿道和公共停车设施建设","济南市","2026年度","新建40处公园、70公里绿道、开放100处共享绿地。","济南市年度计划","https://www.jinan.gov.cn/cms_files/filemanager/49/attach/20264/C111A5BAE8D23902EDA30E4A8D10AFFE.pdf"],
+        ["教育","汉峪、莲花山片区高中建设","高新区、历城区","2026年推进","增加高中学位，推进义务教育优质均衡和免费学前教育政策。","济南市年度计划","https://www.jinan.gov.cn/cms_files/filemanager/49/attach/20264/C111A5BAE8D23902EDA30E4A8D10AFFE.pdf"],
+        ["医疗","国家区域医疗中心及齐鲁医院提升","济南国际医学中心等区域","2026年推进","推动两家国家区域医疗中心运行，支持齐鲁医院争创国家医学中心。","济南市年度计划","https://www.jinan.gov.cn/cms_files/filemanager/49/attach/20264/C111A5BAE8D23902EDA30E4A8D10AFFE.pdf"],
+        ["养老福利","济南市社会福利院迁建","济南市","2026年进入装修阶段","提升社会福利、养老及特殊群体照护服务能力。","济南市政府","https://www.jinan.gov.cn/col/col1761/2025nzt/xmtsn/xmrl/art/2026/art_30977dc09b734e79bcea35eb7ae7a5eb.html"],
+        ["体育文化","槐苑文化体育公园","槐荫广场、槐荫体育场片区","公园计划2026年6月完成；体育场计划9月底完成","建设公园、体育场地及公共活动空间。","济南市政府","https://www.jinan.gov.cn/col/col1761/2025nzt/xmtsn/xmrl/art/2025/art_2b546d03f9fb4689ac6bbde7713c639e.html"],
+        ["文化设施","济南CBD文化配套项目","济南中央商务区","2026年主体工程验收完成","建设核心剧院等文化设施，形成CBD文化地标。","济南市政府","https://www.jinan.gov.cn/col/col1761/2025nzt/xmtsn/xmrl/art/2026/art_26cd0721d5464ead8ab1cb1350910be9.html"],
+        ["商业与城市更新","洪楼TOD及京东MALL","洪楼片区","2026年4月部分主体封顶","推进洪楼片区更新，建设济南都市圈首个京东MALL。","济南市政府","https://www.jinan.gov.cn/col/col1761/2025nzt/xmtsn/xmrl/art/2026/art_7532ac9365e04a839dffb5395205c73f.html"],
+        ["社会安全","燃气安全设施升级","济南市居民小区","2026年度","为15万户免费更换物联网燃气表，加装2000处立管阀。","济南市政府","https://www.jinan.gov.cn/col1861/art/2026/art_1861_5052291.html"],
+        ["房产交易风险","“登记无忧·泉城安选”公益平台","济南市","2026年建设","核验房源及查封、抵押情况，提供贷款、缴税、过户一站式服务。","济南市政府","https://www.jinan.gov.cn/col1861/art/2026/art_1861_5052291.html"]
+      ]
+    };
+    let scope = "local", category = "全部", selected = 0;
+    const rows = document.querySelector("#rows");
+    const filters = document.querySelector("#filters");
+    const search = document.querySelector("#search");
+    const escapeHtml = value => String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    function mapUrls(item) {
+      const q = encodeURIComponent(`济南市 ${item[2]} ${item[1]}`);
+      return {
+        amap: `https://uri.amap.com/search?keyword=${q}&city=济南&view=map`,
+        baidu: `https://map.baidu.com/search/${q}/@12950165,4382736,12z`
+      };
+    }
+    function showMap(item) {
+      const urls = mapUrls(item);
+      document.querySelector("#mapTitle").textContent = item[1];
+      document.querySelector("#mapLocation").textContent = item[2];
+      document.querySelector("#mapSummary").textContent = item[4];
+      document.querySelector("#mapLabel").textContent = item[2];
+      document.querySelector("#amapLink").href = urls.amap;
+      document.querySelector("#baiduLink").href = urls.baidu;
+    }
+    function filteredData() {
+      const term = search.value.trim().toLowerCase();
+      return data[scope].filter(item =>
+        (category === "全部" || item[0] === category) &&
+        (!term || item.slice(0, 5).join(" ").toLowerCase().includes(term))
+      );
+    }
+    function renderFilters() {
+      const cats = ["全部", ...new Set(data[scope].map(item => item[0]))];
+      if (!cats.includes(category)) category = "全部";
+      filters.innerHTML = cats.map(cat =>
+        `<button class="filter ${cat === category ? "active" : ""}" data-category="${escapeHtml(cat)}">${escapeHtml(cat)}</button>`
+      ).join("");
+      filters.querySelectorAll("button").forEach(btn => btn.addEventListener("click", () => {
+        category = btn.dataset.category; selected = 0; renderFilters(); renderRows();
+      }));
+    }
+    function renderRows() {
+      const visible = filteredData();
+      document.querySelector("#count").textContent = `共 ${visible.length} 条`;
+      document.querySelector("#empty").hidden = visible.length > 0;
+      rows.innerHTML = visible.map((item, index) => {
+        const urls = mapUrls(item);
+        const source = item[6] ? `<a class="source" href="${item[6]}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${escapeHtml(item[5])}</a>` : escapeHtml(item[5]);
+        return `<tr class="${index === selected ? "selected" : ""}" data-index="${index}">
+          <td data-label="项目分类"><span class="category">${escapeHtml(item[0])}</span></td>
+          <td data-label="项目名称" class="project">${escapeHtml(item[1])}</td>
+          <td data-label="项目位置">${escapeHtml(item[2])}</td>
+          <td data-label="项目时间">${escapeHtml(item[3])}</td>
+          <td data-label="重点内容">${escapeHtml(item[4])}</td>
+          <td data-label="信息来源">${source}</td>
+          <td data-label="地图"><a class="map-link" href="${urls.amap}" target="_blank" rel="noopener" onclick="event.stopPropagation()">查看地图</a></td>
+        </tr>`;
+      }).join("");
+      rows.querySelectorAll("tr").forEach(tr => tr.addEventListener("click", () => {
+        selected = Number(tr.dataset.index); renderRows();
+      }));
+      if (visible.length) {
+        selected = Math.min(selected, visible.length - 1);
+        showMap(visible[selected]);
+      }
+    }
+    document.querySelectorAll(".scope-tab").forEach(tab => tab.addEventListener("click", () => {
+      scope = tab.dataset.scope; category = "全部"; selected = 0; search.value = "";
+      document.querySelectorAll(".scope-tab").forEach(t => t.classList.toggle("active", t === tab));
+      document.querySelector("#sectionTitle").textContent = scope === "local" ? "龙园小区周边信息" : "济南市重点信息";
+      renderFilters(); renderRows();
+    }));
+    search.addEventListener("input", () => { selected = 0; renderRows(); });
+    renderFilters(); renderRows();
+  </script>
+</body>
+</html>
